@@ -1,0 +1,135 @@
+name: "Partior Push To ECR"
+description: "Package artifact with auto versioning for Smart Contract"
+inputs:
+  aws-region:
+    description: "AWS Cloud Auth Region"
+    required: false
+    default: "ap-southeast-1"
+  ecr-repo-name:
+    description: "ECR Repository Name"
+    required: true
+    default: ""
+  ecr-account-id:
+    description: "ECR AWS Account ID"
+    required: true
+    default: ""
+  jfrog-token:
+    description: "Jfrog Token"
+    required: true
+    default: ""
+  artifactory-docker-registry:
+    description: "Artifactory Docker Registry"
+    required: false
+    default: "partior.jfrog.io"
+  artifactory-username:
+    description: "Username for artifactory"
+    required: true
+    default: ""
+  artifactory-token:
+    description: "Access Token/Password for artifactory"
+    required: true
+    default: ""
+  artifact-sources:
+    description: "Comma-separated list of full artifact paths to pull from Artifactory (e.g., registry/path/to/image:tag)."
+    required: true
+  disable-pull:
+    description: "Flag to disable pull"
+    required: false
+    default: "false"
+
+outputs:
+  pushed-images:
+    description: "List of images successfully pushed to ECR (comma-separated)."
+    value: ${{ steps.push-images.outputs.pushed_list_content }}
+  failed-images:
+    description: "List of images that failed to push to ECR (comma-separated)."
+    value: ${{ steps.push-images.outputs.failed_list_content }}
+  skipped-images:
+    description: "List of images that were skipped (e.g., already existed, wrong scope) (comma-separated)."
+    value: ${{ steps.push-images.outputs.skipped_list_content }}
+  total-pushed:
+    description: "Count of images successfully pushed."
+    value: ${{ steps.push-images.outputs.total_pushed }}
+  total-failed:
+    description: "Count of images that failed."
+    value: ${{ steps.push-images.outputs.total_failed }}
+  total-skipped:
+    description: "Count of images that were skipped."
+    value: ${{ steps.push-images.outputs.total_skipped }}
+  
+runs:
+  using: "composite"
+  steps:
+    - name: Setup jfrog
+      if: inputs.jfrog-token != ''
+      uses: jfrog/setup-jfrog-cli@v4
+      env:
+        JF_ENV_1: ${{ inputs.jfrog-token }}
+
+    - name: Get Temporary Access Token
+      if: inputs.jfrog-token != ''
+      run: |
+        accessUsername=$(jf config show | grep "User:" | awk -F'[\t ]+' '{print $2}' | head -n 1)
+        accessToken=$(jf rt access-token-create | jq -r .access_token)
+        echo "ARTIFACTORY_TMP_USERNAME=${accessUsername}" >> ${GITHUB_ENV}
+        echo "ARTIFACTORY_TMP_TOKEN=${accessToken}" >> ${GITHUB_ENV}
+        echo "::add-mask::${accessToken}"
+        echo "[INFO] accessUsername: $accessUsername"
+
+    - name: Display jfrog setup
+      if: inputs.jfrog-token != ''
+      run: |
+        echo [DEBUG] Show jfrog setup
+        jfrog c show
+      shell: bash
+
+    - name: 'Authenticate to AWS Cloud'
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: ${{ inputs.aws-region }}
+        role-to-assume: arn:aws:iam::${{ inputs.ecr-account-id }}:role/role-gh-actions
+        role-session-name: gh-actions-session
+
+    - name: Authenticate ECR Docker registry
+      run: |
+        echo "[INFO] ECR_ACCOUNT_ID=${{ inputs.ecr-account-id }}"
+        echo "[INFO] ECR_REPO_NAME=${{ inputs.ecr-repo-name }}"
+        echo "[INFO] AWS_REGION=${{ inputs.aws-region }}"
+        aws ecr get-login-password --region ${{ inputs.aws-region }} | docker login --username AWS --password-stdin ${{ inputs.ecr-account-id }}.dkr.ecr.${{ inputs.aws-region }}.amazonaws.com
+
+    - name: Debug - List All ECR Repositories to Verify AWS Auth - WILL REMOVE
+      run: |
+        echo "Attempting to list all ECR repositories in region '${{ inputs.aws-region }}' to verify AWS authentication..."
+        aws ecr describe-repositories --region "${{ inputs.aws-region }}" || {
+          echo "::error::AWS authentication or ECR listing failed!"
+          echo "Please check your AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and IAM permissions."
+          echo "Ensure the IAM user/role has 'ecr:DescribeRepositories' permission on *all* resources."
+          exit 1
+        }
+        echo "Successfully listed ECR repositories. AWS authentication confirmed."
+      env:
+        AWS_PAGER: ""
+
+    - name: Push Docker Image
+        run: |
+          echo "[INFO] Import docker image..."
+          source "${{ github.action_path }}/scripts/setup_ecr_repo.sh"
+          source "${{ github.action_path }}/scripts/push_to_ecr.sh"
+
+          echo "[INFO] Starting Docker image processing..."
+
+          inputArtifactList="${{ inputs.artifact-sources }}"
+          local_failedList="/tmp/partior-push-failed.list"
+          local_pushedList="/tmp/partior-push-pushed.list"
+          local_existedList="/tmp/partior-push-existed.list"
+          rm -f "$local_failedList" "$local_pushedList" "$local_existedList"
+          touch "$local_failedList" "$local_pushedList" "$local_existedList"
+
+          failedFlag=false
+          IFS=',' read -r -a inputArtifactArray <<< "$inputArtifactList"
+
+          set -e
+          echo docker login ${{ inputs.artifactory-docker-registry }} -u ${{ inputs.artifactory-username }}
+          docker login ${{ inputs.artifactory-docker-registry }} -u ${{ inputs.artifactory-username }} -p ${{ inputs.artifactory-token }}
+
+          #TODO
