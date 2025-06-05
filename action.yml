@@ -21,14 +21,14 @@ inputs:
     description: "Artifactory Docker Registry"
     required: false
     default: "partior.jfrog.io"
-  artifactory-username:
-    description: "Username for artifactory"
-    required: true
-    default: ""
-  artifactory-token:
-    description: "Access Token/Password for artifactory"
-    required: true
-    default: ""
+  # artifactory-username:
+  #   description: "Username for artifactory"
+  #   required: false
+  #   default: ""
+  # artifactory-token:
+  #   description: "Access Token/Password for artifactory"
+  #   required: false
+  #   default: ""
   artifact-sources:
     description: "Comma-separated list of full artifact paths to pull from Artifactory (e.g., registry/path/to/image:tag)."
     required: true
@@ -129,10 +129,11 @@ runs:
         touch "$local_failedList" "$local_pushedList" "$local_existedList"
 
         failedFlag=false
+        inputArtifactList="${{ inputs.artifact-sources }}"
         echo "[INFO] List of Artifact Input: ${inputArtifactArray[@]}"
         IFS=',' read -r -a inputArtifactArray <<< "$inputArtifactList"
 
         set -e
-        echo docker login ${{ inputs.artifactory-docker-registry }} -u ${{ inputs.artifactory-username }}
-        docker login ${{ inputs.artifactory-docker-registry }} -u ${{ inputs.artifactory-username }} -p ${{ inputs.artifactory-token }}
+        echo docker login ${{ inputs.artifactory-docker-registry }} -u ${{ env.ARTIFACTORY_TMP_USERNAME }}
+        docker login ${{ inputs.artifactory-docker-registry }} -u ${{ env.ARTIFACTORY_TMP_USERNAME }} -p ${{ env.ARTIFACTORY_TMP_TOKEN }}
       shell: bash
