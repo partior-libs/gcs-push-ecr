@@ -114,6 +114,7 @@ runs:
       shell: bash
 
     - name: Push Docker Image
+      id: push-images
       run: |
         echo "[INFO] Import docker image..."
         source "${{ github.action_path }}/scripts/setup_ecr_repo.sh"
