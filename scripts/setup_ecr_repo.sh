@@ -31,12 +31,19 @@ function create_ecr_repo_if_not_exists() {
 
   if echo "$repo_status" | grep -q "RepositoryNotFoundException"; then
     echo "[INFO] ECR repository '$repo_name' not found. Creating..."
-    aws ecr create-repository \
+    local create_output
+    if ! create_output=$(aws ecr create-repository \
       --repository-name "$repo_name" \
       --region "$aws_region" \
       --image-scanning-configuration scanOnPush=true \
       --image-tag-mutability IMMUTABLE \
-      --output text
+      --output text 2>&1
+    ); then
+      echo "ERROR: Failed to create ECR repository '$repo_name'." >&2
+      echo "[ERROR] AWS CLI Output for CreateRepository: $create_output" >&2
+      return 1
+    fi
+    
     echo "[INFO] ECR repository '$repo_name' created successfully."
     return 0
   elif [[ "$describe_exit_code" -ne 0 ]]; then
