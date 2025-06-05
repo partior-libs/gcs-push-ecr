@@ -161,14 +161,17 @@ runs:
         done
 
         # --- Summary and Outputs (remains the same) ---
-        echo "--- Processing Summary ---"
-        echo "Failed Images:"
+        echo "--- S U M M A R Y ---"
+        echo "[INFO] --- Failed pushed -----"
         cat "$local_failedList" || echo "  None"
-        echo "Pushed Images:"
+        echo "------- end of failed list ---------"
+        echo "[INFO] --- Successfully pushed -----"
         cat "$local_pushedList" || echo "  None"
-        echo "Skipped/Existed Images:"
+        echo "------- end of success list ---------"
+        echo "[INFO] --- Skipped list -----"
         cat "$local_existedList" || echo "  None"
-        echo "--- End Summary ---"
+        echo "------- end of skipped list ---------"
+        echo "--- E N D   S U M M A R Y ---"
 
         pushed_count=$(wc -l < "$local_pushedList" 2>/dev/null) || pushed_count=0
         failed_count=$(wc -l < "$local_failedList" 2>/dev/null) || failed_count=0
