@@ -130,10 +130,18 @@ runs:
 
         failedFlag=false
         inputArtifactList="${{ inputs.artifact-sources }}"
-        echo "[INFO] List of Artifact Input: ${inputArtifactArray[@]}"
+        echo "[INFO] List of Artifact Input: ${{ inputs.artifact-sources }}"
         IFS=',' read -r -a inputArtifactArray <<< "$inputArtifactList"
 
         set -e
         echo docker login ${{ inputs.artifactory-docker-registry }} -u ${{ env.ARTIFACTORY_TMP_USERNAME }}
         docker login ${{ inputs.artifactory-docker-registry }} -u ${{ env.ARTIFACTORY_TMP_USERNAME }} -p ${{ env.ARTIFACTORY_TMP_TOKEN }}
+
+        echo "[INFO] ECR_ACCOUNT_ID=${{ inputs.ecr-account-id }}"
+        echo "[INFO] ECR_REPO_NAME=${{ inputs.ecr-repo-name }}"
+
+        for eachArtifact in "${inputArtifactArray[@]}"; do
+          echo "--------------------------------------------------------------------"
+          echo "[INFO] Preparing to push from [$eachArtifact]..."
+        done
       shell: bash
