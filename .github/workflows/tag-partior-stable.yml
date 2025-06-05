@@ -1,0 +1,23 @@
+name: Create partior-stable tag
+on:
+  workflow_dispatch:
+
+jobs:
+  read-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Git tag partior-stable
+        run: |
+          echo [INFO] Deleting local tag...
+          git tag -d partior-stable || true
+
+          echo [INFO] Deleting remote tag...
+          git push --delete origin partior-stable || true
+
+          echo [INFO] Create new partior-stable tag...
+          git tag partior-stable
+          git push --tags
