@@ -56,7 +56,7 @@ outputs:
   total-skipped:
     description: "Count of images that were skipped."
     value: ${{ steps.push-images.outputs.total_skipped }}
-  
+
 runs:
   using: "composite"
   steps:
@@ -75,6 +75,7 @@ runs:
         echo "ARTIFACTORY_TMP_TOKEN=${accessToken}" >> ${GITHUB_ENV}
         echo "::add-mask::${accessToken}"
         echo "[INFO] accessUsername: $accessUsername"
+      shell: bash
 
     - name: Display jfrog setup
       if: inputs.jfrog-token != ''
@@ -83,7 +84,7 @@ runs:
         jfrog c show
       shell: bash
 
-    - name: 'Authenticate to AWS Cloud'
+    - name: "Authenticate to AWS Cloud"
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-region: ${{ inputs.aws-region }}
@@ -109,23 +110,25 @@ runs:
         echo "Successfully listed ECR repositories. AWS authentication confirmed."
       env:
         AWS_PAGER: ""
+      shell: bash
 
     - name: Push Docker Image
-        run: |
-          echo "[INFO] Import docker image..."
+      run: |
+        echo "[INFO] Import docker image..."
 
-          echo "[INFO] Starting Docker image processing..."
+        echo "[INFO] Starting Docker image processing..."
 
-          inputArtifactList="${{ inputs.artifact-sources }}"
-          local_failedList="/tmp/partior-push-failed.list"
-          local_pushedList="/tmp/partior-push-pushed.list"
-          local_existedList="/tmp/partior-push-existed.list"
-          rm -f "$local_failedList" "$local_pushedList" "$local_existedList"
-          touch "$local_failedList" "$local_pushedList" "$local_existedList"
+        inputArtifactList="${{ inputs.artifact-sources }}"
+        local_failedList="/tmp/partior-push-failed.list"
+        local_pushedList="/tmp/partior-push-pushed.list"
+        local_existedList="/tmp/partior-push-existed.list"
+        rm -f "$local_failedList" "$local_pushedList" "$local_existedList"
+        touch "$local_failedList" "$local_pushedList" "$local_existedList"
 
-          failedFlag=false
-          IFS=',' read -r -a inputArtifactArray <<< "$inputArtifactList"
+        failedFlag=false
+        IFS=',' read -r -a inputArtifactArray <<< "$inputArtifactList"
 
-          set -e
-          echo docker login ${{ inputs.artifactory-docker-registry }} -u ${{ inputs.artifactory-username }}
-          docker login ${{ inputs.artifactory-docker-registry }} -u ${{ inputs.artifactory-username }} -p ${{ inputs.artifactory-token }}
+        set -e
+        echo docker login ${{ inputs.artifactory-docker-registry }} -u ${{ inputs.artifactory-username }}
+        docker login ${{ inputs.artifactory-docker-registry }} -u ${{ inputs.artifactory-username }} -p ${{ inputs.artifactory-token }}
+      shell: bash
