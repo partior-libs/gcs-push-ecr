@@ -116,6 +116,8 @@ runs:
     - name: Push Docker Image
       run: |
         echo "[INFO] Import docker image..."
+        source "${{ github.action_path }}/scripts/setup_ecr_repo.sh"
+        source "${{ github.action_path }}/scripts/push_to_ecr.sh"
 
         echo "[INFO] Starting Docker image processing..."
 
@@ -127,6 +129,7 @@ runs:
         touch "$local_failedList" "$local_pushedList" "$local_existedList"
 
         failedFlag=false
+        echo "[INFO] List of Artifact Input: ${inputArtifactArray[@]}"
         IFS=',' read -r -a inputArtifactArray <<< "$inputArtifactList"
 
         set -e
