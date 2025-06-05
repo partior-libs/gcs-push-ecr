@@ -113,8 +113,6 @@ runs:
     - name: Push Docker Image
         run: |
           echo "[INFO] Import docker image..."
-          source "${{ github.action_path }}/scripts/setup_ecr_repo.sh"
-          source "${{ github.action_path }}/scripts/push_to_ecr.sh"
 
           echo "[INFO] Starting Docker image processing..."
 
@@ -131,5 +129,3 @@ runs:
           set -e
           echo docker login ${{ inputs.artifactory-docker-registry }} -u ${{ inputs.artifactory-username }}
           docker login ${{ inputs.artifactory-docker-registry }} -u ${{ inputs.artifactory-username }} -p ${{ inputs.artifactory-token }}
-
-          #TODO
