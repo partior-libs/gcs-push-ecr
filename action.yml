@@ -165,4 +165,29 @@ runs:
         echo "Skipped/Existed Images:"
         cat "$local_existedList" || echo "  None"
         echo "--- End Summary ---"
+
+        local pushed_count=$(wc -l < "$local_pushedList" 2>/dev/null) || pushed_count=0 # Added 2>/dev/null for wc
+        local failed_count=$(wc -l < "$local_failedList" 2>/dev/null) || failed_count=0
+        local skipped_count=$(wc -l < "$local_existedList" 2>/dev/null) || skipped_count=0
+
+        local pushed_content=""
+        if [[ -s "$local_pushedList" ]]; then pushed_content=$(cat "$local_pushedList" | tr '\n' ',' | sed 's/,$//'); fi
+        local failed_content=""
+        if [[ -s "$local_failedList" ]]; then failed_content=$(cat "$local_failedList" | tr '\n' ',' | sed 's/,$//'); fi
+        local skipped_content=""
+        if [[ -s "$local_existedList" ]]; then skipped_content=$(cat "$local_existedList" | tr '\n' ',' | sed 's/,$//'); fi
+
+        echo "total_pushed=${pushed_count}" >> "$GITHUB_OUTPUT"
+        echo "total_failed=${failed_count}" >> "$GITHUB_OUTPUT"
+        echo "total_skipped=${skipped_count}" >> "$GITHUB_OUTPUT"
+        echo "pushed_list_content=${pushed_content}" >> "$GITHUB_OUTPUT"
+        echo "failed_list_content=${failed_content}" >> "$GITHUB_OUTPUT"
+        echo "skipped_list_content=${skipped_content}" >> "$GITHUB_OUTPUT"
+
+        if [[ "$failedFlag" == "true" ]]; then
+          echo "::error::One or more images failed to pull or push. Check logs for details."
+          exit 1
+        else
+          echo "[INFO] All selected images processed successfully (some may have been skipped or already existed)."
+        fi
       shell: bash
