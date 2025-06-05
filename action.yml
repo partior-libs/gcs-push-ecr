@@ -129,13 +129,15 @@ runs:
         touch "$local_failedList" "$local_pushedList" "$local_existedList"
 
         failedFlag=false
-        inputArtifactList="${{ inputs.artifact-sources }}"
         echo "[INFO] List of Artifact Input: ${{ inputs.artifact-sources }}"
         IFS=',' read -r -a inputArtifactArray <<< "$inputArtifactList"
 
-        set -e
         echo docker login ${{ inputs.artifactory-docker-registry }} -u ${{ env.ARTIFACTORY_TMP_USERNAME }}
-        docker login ${{ inputs.artifactory-docker-registry }} -u ${{ env.ARTIFACTORY_TMP_USERNAME }} -p ${{ env.ARTIFACTORY_TMP_TOKEN }}
+        if ! docker login "${{ inputs.artifactory-docker-registry }}" -u "${{ env.ARTIFACTORY_TMP_USERNAME }}" -p "${{ env.ARTIFACTORY_TMP_TOKEN }}"; then
+            echo "::error::Initial Docker login to Artifactory failed. Aborting image push."
+            exit 1
+        fi
+        set -e
 
         echo "[INFO] ECR_ACCOUNT_ID=${{ inputs.ecr-account-id }}"
         echo "[INFO] ECR_REPO_NAME=${{ inputs.ecr-repo-name }}"
@@ -144,6 +146,7 @@ runs:
           echo "--------------------------------------------------------------------"
           echo "[INFO] Preparing to push from [$eachArtifact]..."
 
+          set +e
           if ! process_docker_image \
                                    "$eachArtifact" \
                                    "${{ inputs.ecr-account-id }}" \
@@ -154,6 +157,7 @@ runs:
             echo "[CRITICAL_ERROR] Processing of artifact '$eachArtifact' failed. Check logs above." >&2
             failedFlag=true
           fi
+          set -e
         done
 
         # --- Summary and Outputs (remains the same) ---
@@ -166,15 +170,15 @@ runs:
         cat "$local_existedList" || echo "  None"
         echo "--- End Summary ---"
 
-        local pushed_count=$(wc -l < "$local_pushedList" 2>/dev/null) || pushed_count=0 # Added 2>/dev/null for wc
-        local failed_count=$(wc -l < "$local_failedList" 2>/dev/null) || failed_count=0
-        local skipped_count=$(wc -l < "$local_existedList" 2>/dev/null) || skipped_count=0
+        pushed_count=$(wc -l < "$local_pushedList" 2>/dev/null) || pushed_count=0
+        failed_count=$(wc -l < "$local_failedList" 2>/dev/null) || failed_count=0
+        skipped_count=$(wc -l < "$local_existedList" 2>/dev/null) || skipped_count=0
 
-        local pushed_content=""
+        pushed_content=""
         if [[ -s "$local_pushedList" ]]; then pushed_content=$(cat "$local_pushedList" | tr '\n' ',' | sed 's/,$//'); fi
-        local failed_content=""
+        failed_content=""
         if [[ -s "$local_failedList" ]]; then failed_content=$(cat "$local_failedList" | tr '\n' ',' | sed 's/,$//'); fi
-        local skipped_content=""
+        skipped_content=""
         if [[ -s "$local_existedList" ]]; then skipped_content=$(cat "$local_existedList" | tr '\n' ',' | sed 's/,$//'); fi
 
         echo "total_pushed=${pushed_count}" >> "$GITHUB_OUTPUT"
