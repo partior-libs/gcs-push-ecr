@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Source the ECR utility functions (adjust path as needed)
-# It's assumed that ecr_utils.sh contains the create_ecr_repo_if_not_exists function.
-source "$(dirname "${BASH_SOURCE[0]}")/ecr_utils.sh" || { echo "ERROR: Could not source ecr_utils.sh" >&2; exit 1; }
+# It's assumed that setup_ecr_repo.sh contains the create_ecr_repo_if_not_exists function.
+source "$(dirname "${BASH_SOURCE[0]}")/setup_ecr_repo.sh" || { echo "ERROR: Could not source setup_ecr_repo.sh" >&2; exit 1; }
 
 # Function to process a single Docker image: pull, check/create ECR repo, tag, push.
 #
