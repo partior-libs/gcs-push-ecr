@@ -19,7 +19,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/setup_ecr_repo.sh" || { echo "ERROR: Coul
 #   1: On any critical failure during the process (e.g., pull failure, repo creation failure, push failure).
 #
 function process_docker_image() {
-  local eachArtifact="$1"
+  local full_artifact_path="$1"
   local ecr_account_id="$2"
   local ecr_base_repo_name="$3"
   local aws_region="$4"
@@ -32,37 +32,37 @@ function process_docker_image() {
   local existedList="${list_base_path}partior-push-existed.list"
 
   echo "--------------------------------------------------------------------"
-  echo "[INFO] Preparing to process image from [$eachArtifact]..."
+  echo "[INFO] Preparing to process image from [$full_artifact_path]..."
 
   # Strip the Artifactory registry and docker-(release|dev)/ prefix
   local trimmedArtifactName
-  trimmedArtifactName=$(echo "$eachArtifact" | awk -F"docker-(release|dev)/" '{print $2}')
+  trimmedArtifactName=$(echo "$full_artifact_path" | awk -F"docker-(release|dev)/" '{print $2}')
   if [[ -z "$trimmedArtifactName" ]]; then
-    echo "[ERROR] Could not trim artifact name from [$eachArtifact]. Skipping." >&2
-    echo "[FAILED_TRIM] ${eachArtifact}" >> "$failedList"
+    echo "[ERROR] Could not trim artifact name from [$full_artifact_path]. Skipping." >&2
+    echo "[FAILED_TRIM] ${full_artifact_path}" >> "$failedList"
     return 1
   fi
   echo "[DEBUG] Trimmed Artifact Name: $trimmedArtifactName"
 
   # Scope check
-  if [[ "$ecr_base_repo_name" == "docker-release" ]] && [[ "$eachArtifact" == *"/docker-release/"* ]]; then
-    echo "[INFO] Image [$eachArtifact] matches target 'docker-release' scope."
-  elif [[ "$ecr_base_repo_name" == "docker-dev" ]] && [[ "$eachArtifact" == *"/docker-dev/"* ]]; then
-    echo "[INFO] Image [$eachArtifact] matches target 'docker-dev' scope."
+  if [[ "$ecr_base_repo_name" == "docker-release" ]] && [[ "$full_artifact_path" == *"/docker-release/"* ]]; then
+    echo "[INFO] Image [$full_artifact_path] matches target 'docker-release' scope."
+  elif [[ "$ecr_base_repo_name" == "docker-dev" ]] && [[ "$full_artifact_path" == *"/docker-dev/"* ]]; then
+    echo "[INFO] Image [$full_artifact_path] matches target 'docker-dev' scope."
   else
-    echo "[INFO] Skipping [$eachArtifact] as it does not match the target repo scope [$ecr_base_repo_name]."
-    echo "[SKIP-SCOPE] ${eachArtifact}" >> "$existedList"
+    echo "[INFO] Skipping [$full_artifact_path] as it does not match the target repo scope [$ecr_base_repo_name]."
+    echo "[SKIP-SCOPE] ${full_artifact_path}" >> "$existedList"
     return 0 # Not a failure, just skipped
   fi
 
   # 1. Docker Pull
   if [[ "$disable_pull_flag" == "true" ]]; then
-    echo "[INFO] Docker pull explicitly disabled for [$eachArtifact]."
+    echo "[INFO] Docker pull explicitly disabled for [$full_artifact_path]."
   else
-    echo "docker pull \"$eachArtifact\" --platform linux/amd64"
-    if ! docker pull "$eachArtifact" --platform linux/amd64; then
-      echo "[WARNING] Failed to pull image [$eachArtifact]..." >&2
-      echo "[FAILED_PULL] ${eachArtifact}" >> "$failedList"
+    echo "docker pull \"$full_artifact_path\" --platform linux/amd64"
+    if ! docker pull "$full_artifact_path" --platform linux/amd64; then
+      echo "[WARNING] Failed to pull image [$full_artifact_path]..." >&2
+      echo "[FAILED_PULL] ${full_artifact_path}" >> "$failedList"
       return 1 # Failure to pull
     fi
   fi
@@ -96,15 +96,15 @@ function process_docker_image() {
     # Call the library function to create the ECR repository
     if ! create_ecr_repo_if_not_exists "$actualEcrRepoNameOnly" "$aws_region"; then
       echo "[ERROR] Failed to ensure ECR repository '$actualEcrRepoNameOnly' exists. Skipping push for this image." >&2
-      echo "[FAILED_REPO_CREATE] ${full_artifactory_image_path}" >> "$failedList"
+      echo "[FAILED_REPO_CREATE] ${full_artifact_path}" >> "$failedList"
       return 1 # Failure in repository creation
     fi
 
     # 4. Docker Tag
-    echo "docker image tag \"$full_artifactory_image_path\" \"$targetEcrUrl\""
-    if ! docker image tag "$full_artifactory_image_path" "$targetEcrUrl"; then
-      echo "[ERROR] Failed to tag image [$full_artifactory_image_path] to [$targetEcrUrl]." >&2
-      echo "[FAILED_TAG] ${full_artifactory_image_path}" >> "$failedList"
+    echo "docker image tag \"$full_artifact_path\" \"$targetEcrUrl\""
+    if ! docker image tag "$full_artifact_path" "$targetEcrUrl"; then
+      echo "[ERROR] Failed to tag image [$full_artifact_path] to [$targetEcrUrl]." >&2
+      echo "[FAILED_TAG] ${full_artifact_path}" >> "$failedList"
       return 1 # Failure to tag
     fi
 
@@ -112,7 +112,7 @@ function process_docker_image() {
     echo "docker push \"$targetEcrUrl\""
     if ! docker push "$targetEcrUrl"; then
       echo "[WARNING] Failed to push image [$targetEcrUrl]..." >&2
-      echo "[FAILED_PUSH] ${full_artifactory_image_path}" >> "$failedList"
+      echo "[FAILED_PUSH] ${full_artifact_path}" >> "$failedList"
       return 1 # Failure to push
     fi
     echo "[INFO] Successfully pushed [$targetEcrUrl]"
@@ -123,13 +123,13 @@ function process_docker_image() {
     echo "docker image inspect \"${targetEcrUrl}\""
     if ! docker image inspect "${targetEcrUrl}" &>/dev/null; then
       echo "[ERROR] Verification failed: ${targetEcrUrl}. Image not found in ECR after push." >&2
-      echo "[FAILED_VERIFICATION] ${full_artifactory_image_path}" >> "$failedList"
+      echo "[FAILED_VERIFICATION] ${full_artifact_path}" >> "$failedList"
       return 1 # Failure in verification
     fi
     echo "[INFO] Verification successful for [$targetEcrUrl]."
 
   else
-    echo "[INFO] Push for [$full_artifactory_image_path] was skipped based on duplicate check or explicit rules."
+    echo "[INFO] Push for [$full_artifact_path] was skipped based on duplicate check or explicit rules."
   fi
 
   echo "--------------------------------------------------------------------"
