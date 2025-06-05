@@ -97,6 +97,7 @@ runs:
         echo "[INFO] ECR_REPO_NAME=${{ inputs.ecr-repo-name }}"
         echo "[INFO] AWS_REGION=${{ inputs.aws-region }}"
         aws ecr get-login-password --region ${{ inputs.aws-region }} | docker login --username AWS --password-stdin ${{ inputs.ecr-account-id }}.dkr.ecr.${{ inputs.aws-region }}.amazonaws.com
+      shell: bash
 
     - name: Debug - List All ECR Repositories to Verify AWS Auth - WILL REMOVE
       run: |
