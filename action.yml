@@ -143,5 +143,26 @@ runs:
         for eachArtifact in "${inputArtifactArray[@]}"; do
           echo "--------------------------------------------------------------------"
           echo "[INFO] Preparing to push from [$eachArtifact]..."
+
+          if ! process_docker_image \
+                                   "$eachArtifact" \
+                                   "${{ inputs.ecr-account-id }}" \
+                                   "${{ inputs.ecr-repo-name }}" \
+                                   "${{ inputs.aws-region }}" \
+                                   "${{ inputs.disable-pull }}" \
+                                   "/tmp/"; then
+            echo "[CRITICAL_ERROR] Processing of artifact '$eachArtifact' failed. Check logs above." >&2
+            failedFlag=true
+          fi
         done
+
+        # --- Summary and Outputs (remains the same) ---
+        echo "--- Processing Summary ---"
+        echo "Failed Images:"
+        cat "$local_failedList" || echo "  None"
+        echo "Pushed Images:"
+        cat "$local_pushedList" || echo "  None"
+        echo "Skipped/Existed Images:"
+        cat "$local_existedList" || echo "  None"
+        echo "--- End Summary ---"
       shell: bash
